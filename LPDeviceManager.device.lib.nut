@@ -30,18 +30,18 @@
  * NOTE: 2) Required changes for ConnectionManager:
  *          2.1. Allow for named onConnect/onDisconnect handlers. CM would allow for multiple 
  *              handlers to registered/unregistered by handler names.    
- *          2.2. Remove server.flush(flushTimeout); for forced disconnect.
+ *          2.2. Make server.flush(flushTimeout); optional, i.e. flushTimeout == -1 means no flush.
  * @class
  */
 class LPDeviceManager {
 
     /**
      * Initializes the library
+     * @param {ConnectionManager} cm - an instance of ConnectionManager library
      * @param {table} config - configuration parameters:
-     *          @tableEntry {ConnectionManager} CONNECTION_MANAGER - an instance of ConnectionManager
      *          @tableEntry {boolean} POWER_SAVE - specifies whether the power save mode should be enabled
      */
-    constructor(config) {
+    constructor(cm, config) {
         //
     }
 
@@ -64,29 +64,32 @@ class LPDeviceManager {
      * Registers a callback to be executed after "deep" sleep time expired
      * (set via imp.deepsleepfor() or server.sleepfor() calls).
      */
-    function onWokeUp(callback) {
+    function onTimer(callback) {
+        //
+    }
+    
+    /**
+     * Registers a callback to be triggered on a wakeup pin.
+     */
+    function onInterrupt(callback) {
         //
     }
 
     /**
      * Executes the action and go to deep sleep for the specified period of time.
+     *
+     * @param {Promise|Promise[]|function|function[]} actions - set of actions to be fulfilled before we go to sleep
+     * @param {number} sleepTime - 
      */
-    function doAndSleepFor(action, sleepTime) {
-        //
-    }
-
-    /**
-     * Disconnects for the specified period of time and then executes the action
-     * defined by the callback function.
-     */
-    function disconnectForAndDo(disconnectTime, action) {
+    // TODO: needs a lot of good examples covering all the edge use cases
+    function doAndSleepFor(actions, sleepTime, actionsTimeout = -1) {
         //
     }
 
     /**
      * Sleeps for the specified period of time
      */
-    function sleep(sleepTime) {
+    function sleepFor(sleepTime) {
         //
     }
 
