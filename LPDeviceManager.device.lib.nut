@@ -31,6 +31,8 @@
  *          2.1. Allow for named onConnect/onDisconnect handlers. CM would allow for multiple 
  *              handlers to registered/unregistered by handler names.    
  *          2.2. Make server.flush(flushTimeout); optional, i.e. flushTimeout == -1 means no flush.
+ * NOTE: 3) imp.onidle should not be used along with the library (as there is a chance they will be overwritten)
+ * 
  * @class
  */
 class LPDeviceManager {
@@ -73,6 +75,13 @@ class LPDeviceManager {
      */
     function onInterrupt(callback) {
         //
+    }
+    
+    /**
+     * Adds an action to be called on idle. The imp should not go to sleep until there is a least one
+     * item in the onIdle list.
+     */
+    function addOnIdle(callback) {
     }
 
     /**
