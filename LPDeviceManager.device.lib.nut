@@ -88,7 +88,7 @@ class LPDeviceManager {
      * Executes the action and go to deep sleep for the specified period of time.
      *
      * @param {Promise|Promise[]|function|function[]} actions - set of actions to be fulfilled before we go to sleep
-     * @param {number} sleepTime - 
+     * @param {number} sleepTime - specified the time the device is going to sleep for after the actions are all fulfiled
      */
     // TODO: needs a lot of good examples covering all the edge use cases
     function doAndSleepFor(actions, sleepTime, actionsTimeout = -1) {
