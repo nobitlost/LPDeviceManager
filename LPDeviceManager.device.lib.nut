@@ -27,7 +27,7 @@
  * The device-side library for low-power device and task management 
  * 
  * NOTE: 1) the library can be instantiated only once, it should be treated as a singleton.
- * NOTE: 2) Required changes for ConnectionManager:
+ * NOTE: 2) Required changes for ConnectionManager (DONE in https://github.com/electricimp/ConnectionManager/pull/29):
  *          2.1. Allow for named onConnect/onDisconnect handlers. CM would allow for multiple 
  *              handlers to registered/unregistered by handler names.    
  *          2.2. Make server.flush(flushTimeout); optional, i.e. flushTimeout == -1 means no flush.
