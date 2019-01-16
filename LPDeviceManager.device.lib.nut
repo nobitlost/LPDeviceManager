@@ -155,7 +155,7 @@ class LPDeviceManager {
      */
     function sleepFor(sleepTime) {
         addOnIdle(function() {
-            imp.deepsleepfor(sleepTime);
+            server.sleepfor(sleepTime);
         });
     }
 
