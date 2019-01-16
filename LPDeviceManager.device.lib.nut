@@ -24,18 +24,45 @@
 
 
 /**
- * The device-side library for low-power device and task management 
- * 
+ * The device-side library for low-power device and task management
+ *
  * NOTE: 1) the library can be instantiated only once, it should be treated as a singleton.
  * NOTE: 2) Required changes for ConnectionManager (DONE in https://github.com/electricimp/ConnectionManager/pull/29):
- *          2.1. Allow for named onConnect/onDisconnect handlers. CM would allow for multiple 
- *              handlers to registered/unregistered by handler names.    
+ *          2.1. Allow for named onConnect/onDisconnect handlers. CM would allow for multiple
+ *              handlers to registered/unregistered by handler names.
  *          2.2. Make server.flush(flushTimeout); optional, i.e. flushTimeout == -1 means no flush.
  * NOTE: 3) imp.onidle should not be used along with the library (as there is a chance they will be overwritten)
- * 
+ *
  * @class
  */
 class LPDeviceManager {
+
+    /** @member {integer} - the stored wakeup reason */
+    _wakeupReason = null;
+
+    /** @member {ConnectionManager} - and optional instance of ConnectionManager */
+    _cm = null;
+
+    /** @member {function} - onSwReset callback to be triggered on imp.reset() or an OOM event */
+    _onSwReset = null;
+
+    /** @member {function} - onHwReset callback to be triggered on booting up after the restart by RESET_L pin */
+    _onHwReset = null;
+
+    /** @member {function} - onTimer callback to be executed after "deep" sleep time expired */
+    _onTimer = null;
+
+    /** @member {function} - onColdBoot callback to be executed on powered on (cold boot) */
+    _onColdBoot = null;
+
+    /** @member {function} - onInterrupt callback to be triggered on a wakeup pin toggled */
+    _onInterrupt = null;
+
+    /** @member {function[]} - array of onIdle handlers to be called */
+    _onIdleCbs = null;
+
+    /** @member {boolean} - controls the debug output of the library */
+    _isDebug = null;
 
     /**
      * Initializes the library
@@ -43,23 +70,26 @@ class LPDeviceManager {
      * @param {table} config - configuration parameters:
      *          @tableEntry {boolean} POWER_SAVE - specifies whether the power save mode should be enabled
      */
-    constructor(cm, config) {
-        //
+    constructor(cm, config = {}) {
+        _cm = cm;
+        _onIdleCbs = [];
+        _wakeupReason = hardware.wakereason();
+        imp.wakeup(0, _dispatchEvents.bindenv(this));
     }
 
     /**
      * Registers a callback to be executed on powered on (cold boot)
      */
     function onColdBoot(callback) {
-        //
+        _onColdBoot = callback;
     }
 
     /**
-     * Registers a callback to be executed on a software reset 
+     * Registers a callback to be executed on a software reset
      * (eg. with imp.reset()) or an out-of-memory error occurred
      */
-    function onReset(callback) {
-        // 
+    function onSwReset(callback) {
+        _onSwReset = callback;
     }
 
     /**
@@ -67,46 +97,73 @@ class LPDeviceManager {
      * (set via imp.deepsleepfor() or server.sleepfor() calls).
      */
     function onTimer(callback) {
-        //
+        _onTimer = callback;
     }
-    
+
     /**
      * Registers a callback to be triggered on a wakeup pin.
      */
     function onInterrupt(callback) {
-        //
+        _onInterrupt = callback;
     }
-    
+
     /**
      * Adds an action to be called on idle. The imp should not go to sleep until there is a least one
      * item in the onIdle list.
      */
     function addOnIdle(callback) {
+        // reset the onidle handler
+        imp.onidle(_processOnIdle.bindenv(this));
+
+        if (_onIdleCbs.find(callback) != null) {
+            return; // the item already exists
+        }
+        if (_isFunc(callback)) {
+            _onIdleCbs.append(callback);
+            return;
+        }
+        _err("Invalid callback type");
     }
 
     /**
      * Executes the action and go to deep sleep for the specified period of time.
      *
-     * @param {Promise|Promise[]|function|function[]} actions - set of actions to be fulfilled before we go to sleep
-     * @param {number} sleepTime - specified the time the device is going to sleep for after the actions are all fulfiled
+     * @param {function|function[]} actions - an action function or an array of functions to be fulfilled before we go to sleep
+     * @param {integer} sleepTime - specified the time the device is going to sleep for after the actions are all fulfiled
      */
     // TODO: needs a lot of good examples covering all the edge use cases
-    function doAndSleepFor(actions, sleepTime, actionsTimeout = -1) {
-        //
+    function doAndSleepFor(actions, sleepTime) {
+        local actionType = typeof actions;
+        _log(actionType);
+        switch(actionType) {
+            case "function":
+                local f = actions;
+                _isFunc(f) && f();
+                break;
+            case "array":
+                foreach (f in actions) {
+                    _isFunc(f) && f();
+                }
+                break;
+        }
+
+        sleepFor(sleepTime);
     }
 
     /**
      * Sleeps for the specified period of time
      */
     function sleepFor(sleepTime) {
-        //
+        addOnIdle(function() {
+            imp.deepsleepfor(sleepTime);
+        });
     }
 
     /**
      * Attempts to establish a connection between the imp and the server.
      */
     function connect() {
-        // 
+        //
     }
 
     /**
@@ -128,5 +185,51 @@ class LPDeviceManager {
      */
     function onDisconnect(callback) {
         //
+    }
+
+    function _dispatchEvents() {
+        switch (_wakeupReason) {
+            case WAKEREASON_POWER_ON:
+                _isFunc(_onColdBoot) && _onColdBoot();
+                break;
+            case WAKEREASON_TIMER:
+                _isFunc(_onTimer) && _onTimer();
+                break;
+            case WAKEREASON_SW_RESET:
+                _isFunc(_onSwReset) && _onSwReset();
+                break;
+            case WAKEREASON_PIN:
+                _isFunc(_onInterrupt) && _onInterrupt();
+                break;
+            case WAKEREASON_HW_RESET:
+                _isFunc(_onHwReset) && _onHwReset();
+                break;
+        }
+    }
+
+    function _processOnIdle() {
+        foreach (cb in _onIdleCbs) {
+            cb();
+        }
+    }
+
+    function _isFunc(f) {
+        return f != null && typeof f == "function";
+    }
+
+    function _isConnected() {
+        local status = _cm ? _cm.isConnected() : server.isconnected();
+    }
+
+    function _log(msg) {
+        if (_isDebug && _isConnected()) {
+            server.log("  [LP]: " + mgs);
+        }
+    }
+
+    function _err(msg) {
+        if (_isConnected()) {
+            server.error("  [LP]: " + msg);
+        }
     }
 }
