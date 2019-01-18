@@ -61,6 +61,12 @@ class LPDeviceManager {
     /** @member {function[]} - array of onIdle handlers to be called */
     _onIdleCbs = null;
 
+    /** @member {function[]} - onConnect callback to be triggered when device connects */
+    _userOnConnect = null;
+
+    /** @member {function[]} - onDisconnect callback to be triggered when device disconnects or fails to connect */
+    _userOnDisconnect = null;
+
     /** @member {boolean} - controls the debug output of the library */
     _isDebug = null;
 
@@ -71,14 +77,23 @@ class LPDeviceManager {
      *          @tableEntry {boolean} POWER_SAVE - specifies whether the power save mode should be enabled
      */
     constructor(cm, config = {}) {
+        const __RM_CALLBACK_NAME = "rm-callback";
         _cm = cm;
         _onIdleCbs = [];
         _wakeupReason = hardware.wakereason();
+
+        _cm.onConnect(_onConnectCallback, __RM_CALLBACK_NAME);
+        _cm.onDisconnect(_onDisconnectCallback, __RM_CALLBACK_NAME);
+
         imp.wakeup(0, _dispatchEvents.bindenv(this));
     }
 
     /**
      * Registers a callback to be executed on powered on (cold boot)
+     */
+    /**
+     * The callback that's triggered when device cold boots
+     * @callback
      */
     function onColdBoot(callback) {
         _onColdBoot = callback;
@@ -87,6 +102,10 @@ class LPDeviceManager {
     /**
      * Registers a callback to be executed on a software reset
      * (eg. with imp.reset()) or an out-of-memory error occurred
+     */
+    /**
+     * The callback that's triggered when device cold boots
+     * @callback
      */
     function onSwReset(callback) {
         _onSwReset = callback;
@@ -102,6 +121,10 @@ class LPDeviceManager {
 
     /**
      * Registers a callback to be triggered on a wakeup pin.
+     */
+    /**
+     * The callback that's triggered when device cold boots
+     * @callback
      */
     function onInterrupt(callback) {
         _onInterrupt = callback;
@@ -163,28 +186,41 @@ class LPDeviceManager {
      * Attempts to establish a connection between the imp and the server.
      */
     function connect() {
-        //
+        _cm.connect();
     }
 
     /**
      * Disconnects the imp from the server and turns the radio off
      */
     function disconnect() {
-        //
+        _cm.disconnect(true);
     }
 
     /**
      * Registers a callback to be executed on successfull connection to the server
+     * @param {function} callback -  a function to be called when device is connected
+     * @param {string} cbName - an optional callback name that can be used to register multiple callbacks
      */
-    function onConnect(callback) {
-        //
+    /**
+     * The callback to be executed when device connects. Have no parameters.
+     * @callback
+     */
+    function onConnect(callback, cbName = __RM_CALLBACK_NAME) {
+        _cm.onConnect(callback, cbName);
     }
 
     /**
      * Registers a callback to be executed on disconnect or an error occurred during connection attempt.
+     * @param {function} callback -  a function to be called when device is disconnected
+     * @param {string} cbName - an optional callback name that can be used to register multiple callbacks
      */
-    function onDisconnect(callback) {
-        //
+    /**
+     * The callback to be executed when device connects. Have no parameters.
+     * @callback
+     * @param {boolean} expected - specifies if the disconnect was intentional, i.e triggered by the user
+     */
+    function onDisconnect(callback, cbName = __RM_CALLBACK_NAME) {
+        _cm.onDisconnect(callback, cbName);
     }
 
     function _dispatchEvents() {
@@ -218,7 +254,7 @@ class LPDeviceManager {
     }
 
     function _isConnected() {
-        local status = _cm ? _cm.isConnected() : server.isconnected();
+        return _cm.isConnected();
     }
 
     function _log(msg) {
