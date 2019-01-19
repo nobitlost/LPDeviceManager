@@ -53,10 +53,18 @@ lp.onSwReset(function() {
 
 lp.onTimer(function() {
     cm.log("onTimer");
-    cm.connect();
+    lp.connect();
 });
 
 lp.onInterrupt(function() {
     cm.log("onInterrupt");
 });
+
+lp.onConnect(function() {
+    cm.log("onConnect");
+})
+
+lp.onDisconnect(function(expected) {
+    cm.log("onDisconnect: expected = " + expected);
+})
 
