@@ -61,12 +61,6 @@ class LPDeviceManager {
     /** @member {function[]} - array of onIdle handlers to be called */
     _onIdleCbs = null;
 
-    /** @member {function[]} - onConnect callback to be triggered when device connects */
-    _userOnConnect = null;
-
-    /** @member {function[]} - onDisconnect callback to be triggered when device disconnects or fails to connect */
-    _userOnDisconnect = null;
-
     /** @member {boolean} - controls the debug output of the library */
     _isDebug = null;
 
@@ -81,9 +75,6 @@ class LPDeviceManager {
         _cm = cm;
         _onIdleCbs = [];
         _wakeupReason = hardware.wakereason();
-
-        _cm.onConnect(_onConnectCallback, __RM_CALLBACK_NAME);
-        _cm.onDisconnect(_onDisconnectCallback, __RM_CALLBACK_NAME);
 
         imp.wakeup(0, _dispatchEvents.bindenv(this));
     }
