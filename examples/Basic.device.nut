@@ -22,11 +22,17 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
+/**
+ * This examples shows some basic low-power device manager functionality.
+ * The implemented scenario is the following:
+ * - on cold boot, software reset is scheduled after 5 seconds
+ * - on sowftware reset a simple function performing a log operation followed by 10 second sleep is scheduled
+ * - connect and disconnect events are logged
+ */
 
-// #require "ConnectionManager.lib.nut:3.1.0"
-@include "github:electricimp/ConnectionManager/ConnectionManager.lib.nut@develop"
+#require "ConnectionManager.lib.nut:3.1.0"
 
-@include __PATH__  + "/../../LPDeviceManager.device.lib.nut"
+@include __PATH__  + "/../LPDeviceManager.device.lib.nut"
 
 cm <- ConnectionManager({
     "blinkupBehavior" : CM_BLINK_ALWAYS

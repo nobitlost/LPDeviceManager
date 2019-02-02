@@ -22,6 +22,8 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
+/** Default timeout for asynchronous functions execution */
+const LP_DEFAULT_TIMEOUT_SEC = 10;
 
 /**
  * The device-side library for low-power device and task management
@@ -140,28 +142,43 @@ class LPDeviceManager {
     }
 
     /**
-     * Executes the action and go to deep sleep for the specified period of time.
+     * Synchronously executes the specified action(s) and goes to deep sleep for the specified period of time.
      *
-     * @param {function|function[]} actions - an action function or an array of functions to be fulfilled before we go to sleep
+     * @param {function} actions - an action function to be fulfilled before we go to sleep. The function takes no arguments.
      * @param {integer} sleepTime - specified the time the device is going to sleep for after the actions are all fulfiled
      */
     // TODO: needs a lot of good examples covering all the edge use cases
-    function doAndSleepFor(actions, sleepTime) {
-        local actionType = typeof actions;
-        _log(actionType);
-        switch(actionType) {
-            case "function":
-                local f = actions;
-                _isFunc(f) && f();
-                break;
-            case "array":
-                foreach (f in actions) {
-                    _isFunc(f) && f();
-                }
-                break;
+    function doAndSleep(action, sleepTime) {
+        _isFunc(action) && action();
+        sleepFor(sleepTime);
+    }
+
+    /**
+     * Schedules asynchronous execution of the specified action(s),
+     * when the actions are done, goes to deep sleep for the specified period of time.
+     * The device goes to sleep on whichever earlier occurs: the timeout or the action has completed.
+     *
+     * @param {action-callback} action - an action function to be fulfilled before we go to sleep
+     * @param {float} sleepTime - specified the time the device is going to sleep for after the actions are all fulfiled
+     * @param {float} timeout - the action timeout
+     */
+    /**
+     * The function that implements an action to be performed.
+     *
+     * @callback action-callback
+     * @param {function} done - the function to be called by the action when done.
+     */
+    function doAsyncAndSleep(action, sleepTime, timeout = LP_DEFAULT_TIMEOUT_SEC) {
+        local timeoutTimer = imp.wakeup(timeout, function() {
+            sleepFor(sleepTime);
+        });
+
+        local done = function() {
+            imp.cancelwakeup(timeoutTimer);
+            sleepFor(sleepTime);
         }
 
-        sleepFor(sleepTime);
+        _isFunc(action) && action(done);
     }
 
     /**
@@ -189,12 +206,12 @@ class LPDeviceManager {
 
     /**
      * Registers a callback to be executed on successfull connection to the server
-     * @param {function} callback -  a function to be called when device is connected
+     * @param {onConnect-callback} callback -  a function to be called when device is connected
      * @param {string} cbName - an optional callback name that can be used to register multiple callbacks
      */
     /**
      * The callback to be executed when device connects. Have no parameters.
-     * @callback
+     * @callback onConnect-callback
      */
     function onConnect(callback, cbName = __RM_CALLBACK_NAME) {
         _cm.onConnect(callback, cbName);
@@ -202,12 +219,12 @@ class LPDeviceManager {
 
     /**
      * Registers a callback to be executed on disconnect or an error occurred during connection attempt.
-     * @param {function} callback -  a function to be called when device is disconnected
+     * @param {onDisconnect-callback} callback -  a function to be called when device is disconnected
      * @param {string} cbName - an optional callback name that can be used to register multiple callbacks
      */
     /**
      * The callback to be executed when device connects. Have no parameters.
-     * @callback
+     * @callback onDisconnect-callback
      * @param {boolean} expected - specifies if the disconnect was intentional, i.e triggered by the user
      */
     function onDisconnect(callback, cbName = __RM_CALLBACK_NAME) {
