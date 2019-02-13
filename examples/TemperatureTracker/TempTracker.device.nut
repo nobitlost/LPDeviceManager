@@ -34,33 +34,49 @@
  *      - Tracker wakes upon expiration of time period
  *      - Determine temperature; if the temperature exceeds the predefined threshold value, creates an alert
  *      - Connect to cloud agent (i.e. power up modem and connect to cellular network)
- *      - Send location, accuracy, timestamp, battery level, and other operational parameters to cloud agent
+ *      - Send sensor readings (temperature, humidity) to the cloud agent
  *      - Receive any pending data from cloud agent
  *      - Sleep, back to #2
  */
 
 #require "HTS221.device.lib.nut:2.0.1"
 #require "ConnectionManager.lib.nut:3.1.0"
+#require "MessageManager.lib.nut:2.3.0"
 @include __PATH__ + "/../../LPDeviceManager.device.lib.nut"
 
 // Wake up period for the tracker to report data
-const WAKE_UP_PERIOD_SEC = 15;
-const TEMP_HUM_SENSOR_I2C_ADDR = 0xBE;
+const WAKE_UP_PERIOD_SEC        = 15;
+const SEND_DATA_TIMEOUT_SEC     = 30;
+const TEMP_HUM_SENSOR_I2C_ADDR  = 0xBE;
 
-class Tracker {
+class TrackerApp {
 
-    _debug      = null;
     _lp         = null;
-    _tempHumid  = null;
+    _mm         = null;
+    _debug      = null;
     _values     = null;
+    _tempHumid  = null;
 
-    constructor(lp) {
-        _lp = lp;
-        _initHW();
-        _values = _readSensor();
+    constructor() {
+        local cm = ConnectionManager({
+            "blinkupBehavior" : CM_BLINK_ALWAYS
+        })
+
+        _lp = LPDeviceManager(cm);
         _lp.onConnect(function() {
-            _lp.doAndSleep(_sendReadings.bindenv(this), WAKE_UP_PERIOD_SEC);
+            _log("onConnect occurred...");
+            _lp.doAsyncAndSleep(_sendReadings.bindenv(this), WAKE_UP_PERIOD_SEC, TEMP_HUM_SENSOR_I2C_ADDR);
         }.bindenv(this));
+
+        _mm = MessageManager();
+
+        _initHW();
+    }
+
+    function start() {
+        _log("Starting app...");
+        _values = _readSensor();
+        _lp.connect();
     }
 
     function _initHW() {
@@ -71,19 +87,23 @@ class Tracker {
         _tempHumid.setMode(HTS221_MODE.ONE_SHOT);
     }
 
-    function _sendReadings() {
+    function _sendReadings(done) {
         if ("temperature" in _values && "humidity" in _values) {
-            server.log("values: temp = " + _values.temperature + " humi = " + _values.humidity);
+            _log("values: temp = " + _values.temperature + " humi = " + _values.humidity);
         } else {
-            server.log("Error reading the sensor...");
+            _err("Error reading the sensor...");
         }
-        agent.send("reading", _values);
+        _mm.send("reading", _values, {
+            "onReply" : function(msg, response) {
+                done();
+            }.bindenv(this)
+        });
     }
 
     function _readSensor() {
         local result = _tempHumid.read();
         if ("error" in result) {
-            server.error("An Error Occurred: " + result.error);
+            _err("An Error Occurred: " + result.error);
             return;
         }
         return {
@@ -93,16 +113,17 @@ class Tracker {
     }
 
     function _log(msg) {
-        if (server.isconnected() && _debug) {
+        if (_lp.isConnected() && _debug) {
             server.log(msg);
+        }
+    }
+
+    function _err(msg) {
+        if (_lp.isConnected()) {
+            server.error(msg);
         }
     }
 }
 
-local cm = ConnectionManager({
-    "blinkupBehavior" : CM_BLINK_ALWAYS
-})
-
-local lp = LPDeviceManager(cm);
-app <- Tracker(lp);
-lp.connect();
+app <- TrackerApp();
+app.start();

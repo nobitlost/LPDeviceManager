@@ -22,6 +22,10 @@
 // ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
-device.on("reading", function(msg) {
-    server.log("readings received: temp = " + msg.temperature + " humi = " + msg.humidity);
+#require "MessageManager.lib.nut:2.3.0"
+
+mm <- MessageManager();
+mm.on("reading", function(msg, reply) {
+    server.log("readings received: temp = " + msg.data.temperature + " humi = " + msg.data.humidity);
+    reply("Received");
 })

@@ -176,7 +176,7 @@ class LPDeviceManager {
         local done = function() {
             imp.cancelwakeup(timeoutTimer);
             sleepFor(sleepTime);
-        }
+        }.bindenv(this);
 
         _isFunc(action) && action(done);
     }
@@ -231,6 +231,15 @@ class LPDeviceManager {
         _cm.onDisconnect(callback, cbName);
     }
 
+    /**
+     * Returns the device connectivity status.
+     *
+     * @returns {boolean} - true if the device is connected and false otherwise.
+     */
+    function isConnected() {
+        return _cm.isConnected();
+    }
+
     function _dispatchEvents() {
         switch (_wakeupReason) {
             case WAKEREASON_POWER_ON:
@@ -261,18 +270,14 @@ class LPDeviceManager {
         return f != null && typeof f == "function";
     }
 
-    function _isConnected() {
-        return _cm.isConnected();
-    }
-
     function _log(msg) {
-        if (_isDebug && _isConnected()) {
+        if (_isDebug && isConnected()) {
             server.log("  [LP]: " + mgs);
         }
     }
 
     function _err(msg) {
-        if (_isConnected()) {
+        if (isConnected()) {
             server.error("  [LP]: " + msg);
         }
     }
