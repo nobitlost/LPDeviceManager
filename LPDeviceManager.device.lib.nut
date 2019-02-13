@@ -187,7 +187,7 @@ class LPDeviceManager {
     function sleepFor(sleepTime) {
         addOnIdle(function() {
             server.sleepfor(sleepTime);
-        });
+        }.bindenv(this));
     }
 
     /**
