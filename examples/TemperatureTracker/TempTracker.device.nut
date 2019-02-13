@@ -65,7 +65,7 @@ class TrackerApp {
         _lp = LPDeviceManager(cm);
         _lp.onConnect(function() {
             _log("onConnect occurred...");
-            _lp.doAsyncAndSleep(_sendReadings.bindenv(this), WAKE_UP_PERIOD_SEC, TEMP_HUM_SENSOR_I2C_ADDR);
+            _lp.doAsyncAndSleep(_sendReadings.bindenv(this), WAKE_UP_PERIOD_SEC, SEND_DATA_TIMEOUT_SEC);
         }.bindenv(this));
 
         _mm = MessageManager();
