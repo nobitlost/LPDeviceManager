@@ -92,6 +92,7 @@ class TrackerApp {
             _log("values: temp = " + _values.temperature + " humi = " + _values.humidity);
         } else {
             _err("Error reading the sensor...");
+            return;
         }
         _mm.send("reading", _values, {
             "onReply" : function(msg, response) {
