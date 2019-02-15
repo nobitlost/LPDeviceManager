@@ -62,20 +62,25 @@ class TrackerApp {
             "blinkupBehavior" : CM_BLINK_ALWAYS
         })
 
+        // 1. Setup low-power device management
         _lp = LPDeviceManager(cm);
         _lp.onConnect(function() {
             _log("onConnect occurred...");
+            // Once connected, send readings and disconnect...
             _lp.doAsyncAndSleep(_sendReadings.bindenv(this), WAKE_UP_PERIOD_SEC, SEND_DATA_TIMEOUT_SEC);
         }.bindenv(this));
 
-        _mm = MessageManager();
-
+        _mm = MessageManager({
+            "connectionManager": cm
+        });
         _initHW();
     }
 
     function start() {
         _log("Starting app...");
+        // 2. Read sensors
         _values = _readSensor();
+        // 3. Get connected
         _lp.connect();
     }
 

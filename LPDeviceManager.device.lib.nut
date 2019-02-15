@@ -60,6 +60,9 @@ class LPDeviceManager {
     /** @member {function} - onInterrupt callback to be triggered on a wakeup pin toggled */
     _onInterrupt = null;
 
+    /** @member {function} - callback that catches all other wake reasons, not handled by the rest of the callbacks */
+    _defaultOnWake = null;
+
     /** @member {function[]} - array of onIdle handlers to be called */
     _onIdleCbs = null;
 
@@ -67,60 +70,32 @@ class LPDeviceManager {
     _isDebug = null;
 
     /**
+     * @typedef {table} WakereasonHandlers  - table of optional handlers for the boot reasons
+     * @property {function} [onColdBoot]    - callback to be executed on the cold boot, the callback takes no parameters
+     * @property {function} [onSwReset]     - callback to be executed on a software reset, the callback takes no parameters
+     * @property {function} [onTimer]       - callback to be executed after "deep" sleep time expired, the callback takes no parameters
+     * @property {function} [onInterrupt]   - callback to be triggered on a wakeup pin, the callback takes no parameters
+     * @property {function} [defaultOnWake] - callback that catches all other wake reasons, not handled by the rest of the callbacks
+     */
+    /**
      * Initializes the library
      * @param {ConnectionManager} cm - an instance of ConnectionManager library
-     * @param {table} config - configuration parameters:
-     *          @tableEntry {boolean} POWER_SAVE - specifies whether the power save mode should be enabled
+     * @param {WakereasonHandlers} handlers - a table of optional handlers of the boot reasons
      */
-    constructor(cm, config = {}) {
-        const __RM_CALLBACK_NAME = "rm-callback";
+    constructor(cm, handlers = {}) {
+        const __RM_CALLBACK_NAME = "lp-callback";
+
         _cm = cm;
         _onIdleCbs = [];
         _wakeupReason = hardware.wakereason();
 
+        _onColdBoot = ("onTimer" in handlers) ? handlers[onTimer] : null;
+        _onColdBoot = ("onSwReset" in handlers) ? handlers[onSwReset] : null;
+        _onColdBoot = ("onColdBoot" in handlers) ? handlers[onColdBoot] : null;
+        _onColdBoot = ("onInterrupt" in handlers) ? handlers[onInterrupt] : null;
+        _onColdBoot = ("defaultOnWake" in handlers) ? handlers[defaultOnWake] : null;
+
         imp.wakeup(0, _dispatchEvents.bindenv(this));
-    }
-
-    /**
-     * Registers a callback to be executed on powered on (cold boot)
-     */
-    /**
-     * The callback that's triggered when device cold boots
-     * @callback
-     */
-    function onColdBoot(callback) {
-        _onColdBoot = callback;
-    }
-
-    /**
-     * Registers a callback to be executed on a software reset
-     * (eg. with imp.reset()) or an out-of-memory error occurred
-     */
-    /**
-     * The callback that's triggered when device cold boots
-     * @callback
-     */
-    function onSwReset(callback) {
-        _onSwReset = callback;
-    }
-
-    /**
-     * Registers a callback to be executed after "deep" sleep time expired
-     * (set via imp.deepsleepfor() or server.sleepfor() calls).
-     */
-    function onTimer(callback) {
-        _onTimer = callback;
-    }
-
-    /**
-     * Registers a callback to be triggered on a wakeup pin.
-     */
-    /**
-     * The callback that's triggered when device cold boots
-     * @callback
-     */
-    function onInterrupt(callback) {
-        _onInterrupt = callback;
     }
 
     /**
@@ -257,6 +232,8 @@ class LPDeviceManager {
             case WAKEREASON_HW_RESET:
                 _isFunc(_onHwReset) && _onHwReset();
                 break;
+            default:
+                _isFunc(_defaultOnWake) && _defaultOnWake();
         }
     }
 
