@@ -146,12 +146,14 @@ class LPDeviceManager {
      * @param {function} done - the function to be called by the action when done.
      */
     function doAsyncAndSleep(action, sleepTime, timeout = LP_DEFAULT_TIMEOUT_SEC) {
-        local timeoutTimer = imp.wakeup(timeout, function() {
+        // Schedule deep sleep after timeout
+        imp.wakeup(timeout, function() {
             sleepFor(sleepTime);
         });
 
+        // deep sleep when done
+        // whichever is earlier: timeout or we are done with the async action
         local done = function() {
-            imp.cancelwakeup(timeoutTimer);
             sleepFor(sleepTime);
         }.bindenv(this);
 
