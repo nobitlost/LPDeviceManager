@@ -60,7 +60,9 @@ class LPDeviceManager {
     /** @member {function} - onInterrupt callback to be triggered on a wakeup pin toggled */
     _onInterrupt = null;
 
-    /** @member {function} - callback that catches all other wake reasons, not handled by the rest of the callbacks */
+    /** @member {function} - callback that catches all other wake reasons, not handled by the rest of the callbacks
+     *                       Takes wakeup reason as a parameter.
+     */
     _defaultOnWake = null;
 
     /** @member {function[]} - array of onIdle handlers to be called */
@@ -75,7 +77,7 @@ class LPDeviceManager {
      * @property {function} [onSwReset]     - callback to be executed on a software reset, the callback takes no parameters
      * @property {function} [onTimer]       - callback to be executed after "deep" sleep time expired, the callback takes no parameters
      * @property {function} [onInterrupt]   - callback to be triggered on a wakeup pin, the callback takes no parameters
-     * @property {function} [defaultOnWake] - callback that catches all other wake reasons, not handled by the rest of the callbacks
+     * @property {function} [defaultOnWake] - callback that catches all other wake reasons, takes wakeup reason as a parameter.
      */
     /**
      * Initializes the library
@@ -233,7 +235,7 @@ class LPDeviceManager {
                 _isFunc(_onHwReset) && _onHwReset();
                 break;
             default:
-                _isFunc(_defaultOnWake) && _defaultOnWake();
+                _isFunc(_defaultOnWake) && _defaultOnWake(_wakeupReason);
         }
     }
 
