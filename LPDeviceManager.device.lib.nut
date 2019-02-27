@@ -60,6 +60,9 @@ class LPDeviceManager {
     /** @member {function} - onInterrupt callback to be triggered on a wakeup pin toggled */
     _onInterrupt = null;
 
+    /** @member {function} - onPowerRestored callback to be triggered when  the imp is VBAT powered during a cold start */
+    _onPowerRestored = null;
+
     /** @member {function} - callback that catches all other wake reasons, not handled by the rest of the callbacks
      *                       Takes wakeup reason as a parameter.
      */
@@ -72,30 +75,33 @@ class LPDeviceManager {
     _isDebug = null;
 
     /**
-     * @typedef {table} WakereasonHandlers  - table of optional handlers for the boot reasons
-     * @property {function} [onColdBoot]    - callback to be executed on the cold boot, the callback takes no parameters
-     * @property {function} [onSwReset]     - callback to be executed on a software reset, the callback takes no parameters
-     * @property {function} [onTimer]       - callback to be executed after "deep" sleep time expired, the callback takes no parameters
-     * @property {function} [onInterrupt]   - callback to be triggered on a wakeup pin, the callback takes no parameters
-     * @property {function} [defaultOnWake] - callback that catches all other wake reasons, takes wakeup reason as a parameter.
+     * @typedef {table} WakereasonHandlers      - table of optional handlers for the boot reasons
+     * @property {function} [onColdBoot]        - callback to be executed on the cold boot, the callback takes no parameters
+     * @property {function} [onSwReset]         - callback to be executed on a software reset, the callback takes no parameters
+     * @property {function} [onTimer]           - callback to be executed after "deep" sleep time expired, the callback takes no parameters
+     * @property {function} [onInterrupt]       - callback to be triggered on a wakeup pin, the callback takes no parameters
+     * @property {function} [onPowerRestored]   - callback to be triggered when the imp is VBAT powered during a cold start
+     * @property {function} [defaultOnWake]     - callback that catches all other wake reasons, takes wakeup reason as a parameter.
      */
     /**
      * Initializes the library
      * @param {ConnectionManager} cm - an instance of ConnectionManager library
      * @param {WakereasonHandlers} handlers - a table of optional handlers of the boot reasons
      */
-    constructor(cm, handlers = {}) {
+    constructor(cm, handlers = {}, isDebug = false) {
         const __RM_CALLBACK_NAME = "lp-callback";
 
         _cm = cm;
         _onIdleCbs = [];
         _wakeupReason = hardware.wakereason();
+        _isDebug = isDebug;
 
-        _onColdBoot = ("onTimer" in handlers) ? handlers[onTimer] : null;
-        _onColdBoot = ("onSwReset" in handlers) ? handlers[onSwReset] : null;
-        _onColdBoot = ("onColdBoot" in handlers) ? handlers[onColdBoot] : null;
-        _onColdBoot = ("onInterrupt" in handlers) ? handlers[onInterrupt] : null;
-        _onColdBoot = ("defaultOnWake" in handlers) ? handlers[defaultOnWake] : null;
+        _onTimer = ("onTimer" in handlers) ? handlers.onTimer : null;
+        _onSwReset = ("onSwReset" in handlers) ? handlers.onSwReset : null;
+        _onColdBoot = ("onColdBoot" in handlers) ? handlers.onColdBoot : null;
+        _onInterrupt = ("onInterrupt" in handlers) ? handlers.onInterrupt : null;
+        _defaultOnWake = ("defaultOnWake" in handlers) ? handlers.defaultOnWake : null;
+        _onPowerRestored = ("onPowerRestored" in handlers) ? handlers.onPowerRestored : null;
 
         imp.wakeup(0, _dispatchEvents.bindenv(this));
     }
@@ -219,26 +225,95 @@ class LPDeviceManager {
         return _cm.isConnected();
     }
 
+    /**
+     * Returns the string description of the wakeup reason.
+     *
+     * @returns {string} - description of the wakeup reason.
+     */
+    function wakeReasonDesc() {
+       local desc = "unknown";
+       switch(_wakeupReason) {
+           case WAKEREASON_TIMER:
+               desc = "timer expired";
+               break;
+           case WAKEREASON_PIN:
+               desc = "interrupt pin";
+               break;
+           case WAKEREASON_SNOOZE:
+               desc = "snooze and retry";
+               break;
+           case WAKEREASON_NEW_SQUIRREL:
+               desc = "new squirrel code";
+               break;
+           case WAKEREASON_NEW_FIRMWARE:
+               desc = "new firmware";
+               break;
+           case WAKEREASON_BLINKUP:
+               desc = "blinkup";
+               break;
+           case WAKEREASON_SQUIRREL_ERROR:
+               desc = "squirrel error";
+               break;
+           case WAKEREASON_SW_RESET:
+               desc = "software reset (or OOM error)";
+               break;
+           case WAKEREASON_SW_RESTART:
+               desc = "server restart";
+               break;
+           case WAKEREASON_HW_RESET:
+               desc = "hardware reset";
+               break;
+           case WAKEREASON_POWER_ON:
+               desc = "cold boot";
+               break;
+           case WAKEREASON_POWER_RESTORED:
+               desc = "VBAT powered during a cold start";
+               break;
+        }
+        return desc;
+   }
+
     function _dispatchEvents() {
+        _log("dispatchEvents wakeupReason: " + _wakeupReason);
         switch (_wakeupReason) {
             case WAKEREASON_POWER_ON:
-                _isFunc(_onColdBoot) && _onColdBoot();
+                if (_isFunc(_onColdBoot)) {
+                    _onColdBoot();
+                    return;
+                }
                 break;
             case WAKEREASON_TIMER:
-                _isFunc(_onTimer) && _onTimer();
+                if (_isFunc(_onTimer)) {
+                    _onTimer();
+                    return;
+                }
                 break;
             case WAKEREASON_SW_RESET:
-                _isFunc(_onSwReset) && _onSwReset();
+                if (_isFunc(_onSwReset)) {
+                    _onSwReset();
+                    return;
+                }
                 break;
             case WAKEREASON_PIN:
-                _isFunc(_onInterrupt) && _onInterrupt();
+                if (_isFunc(_onInterrupt)) {
+                    _onInterrupt();
+                    return;
+                }
                 break;
             case WAKEREASON_HW_RESET:
-                _isFunc(_onHwReset) && _onHwReset();
+                if (_isFunc(_onHwReset)) {
+                    _onHwReset();
+                    return;
+                }
                 break;
-            default:
-                _isFunc(_defaultOnWake) && _defaultOnWake(_wakeupReason);
+            case WAKEREASON_POWER_RESTORED:
+                if (_isFunc(_onPowerRestored)) {
+                    _onPowerRestored();
+                    return;
+                }
+                break;
         }
+        _isFunc(_defaultOnWake) && _defaultOnWake(_wakeupReason);
     }
 
     function _processOnIdle() {
@@ -253,7 +328,7 @@ class LPDeviceManager {
 
     function _log(msg) {
         if (_isDebug && isConnected()) {
-            server.log("  [LP]: " + mgs);
+            server.log("  [LP]: " + msg);
         }
     }
 

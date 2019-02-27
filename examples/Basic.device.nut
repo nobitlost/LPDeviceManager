@@ -34,40 +34,46 @@
 
 @include __PATH__  + "/../LPDeviceManager.device.lib.nut"
 
+function defaultOnWake(reason) {
+    cm.log("defaultOnWake");
+    imp.wakeup(5, function() {
+        imp.reset();
+    })
+}
+
+function onSwReset() {
+    cm.log("onSwReset");
+    imp.wakeup(5, function() {
+        lp.doAsyncAndSleep(function(done) {
+            cm.log("action...");
+            done();
+        }, 10);
+    });
+}
+
+function onTimer() {
+    cm.log("onTimer");
+    lp.connect();
+}
+
+function onInterrupt() {
+    cm.log("onInterrupt");
+}
+
 cm <- ConnectionManager({
     "blinkupBehavior" : CM_BLINK_ALWAYS
 })
 // return;
-lp <- LPDeviceManager(cm);
-
-
-lp.onColdBoot(function() {
-    cm.log("onColdBoot");
-    imp.wakeup(5, function() {
-        imp.reset();
-    })
-});
-
-lp.onSwReset(function() {
-    cm.log("onSwReset");
-    imp.wakeup(5, function() {
-        lp.doAndSleepFor(function() {
-            cm.log("action...");
-        }, 10);
-    });
-});
-
-lp.onTimer(function() {
-    cm.log("onTimer");
-    lp.connect();
-});
-
-lp.onInterrupt(function() {
-    cm.log("onInterrupt");
-});
+lp <- LPDeviceManager(cm, {
+    "defaultOnWake" : defaultOnWake,
+    "onSwReset"     : onSwReset,
+    "onTimer"       : onTimer,
+    "onInterrupt"   : onInterrupt
+}, true);
 
 lp.onConnect(function() {
     cm.log("onConnect");
+    cm.log("DONE");
 })
 
 lp.onDisconnect(function(expected) {
