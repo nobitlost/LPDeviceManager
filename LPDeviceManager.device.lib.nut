@@ -155,7 +155,7 @@ class LPDeviceManager {
         // Schedule deep sleep after timeout
         imp.wakeup(timeout, function() {
             sleepFor(sleepTime);
-        });
+        }.bindenv(this));
 
         // deep sleep when done
         // whichever is earlier: timeout or we are done with the async action
