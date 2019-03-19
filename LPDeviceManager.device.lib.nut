@@ -45,20 +45,32 @@ class LPDeviceManager {
     /** @member {ConnectionManager} - and optional instance of ConnectionManager */
     _cm = null;
 
-    /** @member {function} - onSwReset callback to be triggered on imp.reset() or an OOM event */
-    _onSwReset = null;
-
-    /** @member {function} - onHwReset callback to be triggered on booting up after the restart by RESET_L pin */
-    _onHwReset = null;
+    /** @member {function} - onColdBoot callback to be executed on powered on (cold boot) */
+    _onColdBoot = null;
 
     /** @member {function} - onTimer callback to be executed after "deep" sleep time expired */
     _onTimer = null;
 
-    /** @member {function} - onColdBoot callback to be executed on powered on (cold boot) */
-    _onColdBoot = null;
+    /** @member {function} - onSwReset callback to be triggered on imp.reset() or an OOM event */
+    _onSwReset = null;
 
     /** @member {function} - onInterrupt callback to be triggered on a wakeup pin toggled */
     _onInterrupt = null;
+
+    /** @member {function} - onNewSquirrel callback to be triggered on a new Squirrel code being loaded */
+    _onNewSquirrel = null; ///!!!
+
+    /** @member {function} - onSquirrelError callback to be triggered on a Squirrel run-time error */
+    _onSquirrelError = null; ///!!!
+
+    /** @member {function} - onNewFirmware callback to be triggered on a firmware upgrade (from impOS™ 30) */
+    _onNewFirmware = null; ///!!!
+
+    /** @member {function} - onHwReset callback to be triggered on booting up after the restart by RESET_L pin */
+    _onHwReset = null;
+
+    /** @member {function} - onSwRestart callback to be triggered on a server.restart() (from impOS 36) */
+    _onSwRestart = null; ///!!!
 
     /** @member {function} - onPowerRestored callback to be triggered when  the imp is VBAT powered during a cold start */
     _onPowerRestored = null;
@@ -96,12 +108,18 @@ class LPDeviceManager {
         _wakeupReason = hardware.wakereason();
         _isDebug = isDebug;
 
+        _onColdBoot = ("onColdBoot" in handlers) ? handlers.onColdBoot : null;
         _onTimer = ("onTimer" in handlers) ? handlers.onTimer : null;
         _onSwReset = ("onSwReset" in handlers) ? handlers.onSwReset : null;
-        _onColdBoot = ("onColdBoot" in handlers) ? handlers.onColdBoot : null;
         _onInterrupt = ("onInterrupt" in handlers) ? handlers.onInterrupt : null;
-        _defaultOnWake = ("defaultOnWake" in handlers) ? handlers.defaultOnWake : null;
+        _onNewSquirrel = ("onNewSquirrel" in handlers) ? handlers.onNewSquirrel : null;
+        _onSquirrelError = ("onSquirrelError" in handlers) ? handlers.onSquirrelError : null;
+        _onNewFirmware = ("onNewFirmware" in handlers) ? handlers.onNewFirmware : null;
+        _onHwReset = ("onHwReset" in handlers) ? handlers.onHwReset : null;
+        _onSwRestart = ("onSwRestart" in handlers) ? handlers.onSwRestart : null;
         _onPowerRestored = ("onPowerRestored" in handlers) ? handlers.onPowerRestored : null;
+
+        _defaultOnWake = ("defaultOnWake" in handlers) ? handlers.defaultOnWake : null;
 
         imp.wakeup(0, _dispatchEvents.bindenv(this));
     }
@@ -233,48 +251,63 @@ class LPDeviceManager {
     function wakeReasonDesc() {
        local desc = "unknown";
        switch(_wakeupReason) {
-           case WAKEREASON_TIMER:
-               desc = "timer expired";
-               break;
-           case WAKEREASON_PIN:
-               desc = "interrupt pin";
-               break;
-           case WAKEREASON_SNOOZE:
-               desc = "snooze and retry";
-               break;
-           case WAKEREASON_NEW_SQUIRREL:
-               desc = "new squirrel code";
-               break;
-           case WAKEREASON_NEW_FIRMWARE:
-               desc = "new firmware";
-               break;
-           case WAKEREASON_BLINKUP:
-               desc = "blinkup";
-               break;
-           case WAKEREASON_SQUIRREL_ERROR:
-               desc = "squirrel error";
-               break;
-           case WAKEREASON_SW_RESET:
-               desc = "software reset (or OOM error)";
-               break;
-           case WAKEREASON_SW_RESTART:
-               desc = "server restart";
-               break;
-           case WAKEREASON_HW_RESET:
-               desc = "hardware reset";
-               break;
-           case WAKEREASON_POWER_ON:
-               desc = "cold boot";
-               break;
-           case WAKEREASON_POWER_RESTORED:
-               desc = "VBAT powered during a cold start";
-               break;
+            case WAKEREASON_POWER_ON:
+                desc = "cold boot";
+                break;
+            case WAKEREASON_TIMER:
+                desc = "timer expired";
+                break;
+            case WAKEREASON_SW_RESET:
+                desc = "software reset (or OOM error)";
+                break;
+            case WAKEREASON_PIN:
+                desc = "interrupt pin";
+                break;
+            case WAKEREASON_NEW_SQUIRREL:
+                desc = "new squirrel code";
+                break;
+            case WAKEREASON_SQUIRREL_ERROR:
+                desc = "squirrel error";
+                break;
+            case WAKEREASON_NEW_FIRMWARE:
+                desc = "new firmware";
+                break;
+            case WAKEREASON_SNOOZE:
+                desc = "snooze and retry";
+                break;
+            case WAKEREASON_HW_RESET:
+                desc = "hardware reset";
+                break;
+            case WAKEREASON_BLINKUP:
+                desc = "blinkup";
+                break;
+            case WAKEREASON_SW_RESTART:
+                desc = "server restart";
+                break;
+            case WAKEREASON_POWER_RESTORED:
+                desc = "VBAT powered during a cold start";
+                break;
         }
         return desc;
    }
 
-    function _dispatchEvents() {
-        _log("dispatchEvents wakeupReason: " + _wakeupReason);
+   /*
+            case WAKEREASON_POWER_ON:          +
+            case WAKEREASON_TIMER:             +
+            case WAKEREASON_SW_RESET:          +
+            case WAKEREASON_PIN:               +
+            case WAKEREASON_NEW_SQUIRREL:   => +
+            case WAKEREASON_SQUIRREL_ERROR: => +
+            case WAKEREASON_NEW_FIRMWARE:   => +
+            case WAKEREASON_SNOOZE:         => exclude
+            case WAKEREASON_HW_RESET:          +
+            case WAKEREASON_BLINKUP:        => exclude
+            case WAKEREASON_SW_RESTART:     => +
+            case WAKEREASON_POWER_RESTORED:    +
+   */
+
+    function _dispatchEvents() { ///??? Do we need break after return ???
+        _log("dispatchEvents wakeupReason: " + wakeReasonDesc());
         switch (_wakeupReason) {
             case WAKEREASON_POWER_ON:
                 if (_isFunc(_onColdBoot)) {
@@ -300,9 +333,33 @@ class LPDeviceManager {
                     return;
                 }
                 break;
+            case WAKEREASON_NEW_SQUIRREL:
+                if (_isFunc(_onNewSquirrel)) {
+                    _onNewSquirrel();
+                    return;
+                }
+                break;
+            case WAKEREASON_SQUIRREL_ERROR:
+                if (_isFunc(_onSquirrelError)) {
+                    _onSquirrelError();
+                    return;
+                }
+                break;
+            case WAKEREASON_NEW_FIRMWARE:
+                if (_isFunc(_onNewFirmware)) {
+                    _onNewFirmware();
+                    return;
+                }
+                break;
             case WAKEREASON_HW_RESET:
                 if (_isFunc(_onHwReset)) {
                     _onHwReset();
+                    return;
+                }
+                break;
+            case WAKEREASON_SW_RESTART:
+                if (_isFunc(_onSwReset)) {
+                    _onSwReset();
                     return;
                 }
                 break;
